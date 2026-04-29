@@ -503,25 +503,37 @@ function Slide({ index }) {
           <div className="absa-mock">
             <div className="absa-card">
               <div className="head"><MS name="restaurant" size={14} />FOOD</div>
-              <div className="score">5.0<span className="denom">/5</span></div>
+              <div className="score-row">
+                <MS name="sentiment_very_satisfied" size={40} className="absa-face" />
+                <div className="score">5.0<span className="denom">/5</span></div>
+              </div>
               <div className="bar" style={{width: '100%'}} />
             </div>
             <div className="absa-card">
               <div className="head"><MS name="room_service" size={14} />SERVICE</div>
-              <div className="score">4.9<span className="denom">/5</span></div>
+              <div className="score-row">
+                <MS name="sentiment_very_satisfied" size={40} className="absa-face" />
+                <div className="score">4.9<span className="denom">/5</span></div>
+              </div>
               <div className="bar" style={{width: '98%'}} />
             </div>
             <div className="absa-card">
               <div className="head"><MS name="attach_money" size={14} />PRICE</div>
-              <div className="score">1.7<span className="denom">/5</span></div>
+              <div className="score-row">
+                <MS name="sentiment_frustrated" size={40} className="absa-face" />
+                <div className="score">1.7<span className="denom">/5</span></div>
+              </div>
               <div className="bar short-1" />
-              <div className="pct-line">Better than <strong>23%</strong> of NYC restaurants</div>
+              <div className="pct-line">Feels worth the price more than <strong>23%</strong> of NYC restaurants</div>
             </div>
             <div className="absa-card">
               <div className="head"><MS name="schedule" size={14} />WAIT TIME</div>
-              <div className="score">3.0<span className="denom">/5</span></div>
+              <div className="score-row">
+                <MS name="sentiment_neutral" size={40} className="absa-face" />
+                <div className="score">3.0<span className="denom">/5</span></div>
+              </div>
               <div className="bar short-2" />
-              <div className="pct-line">Better than <strong>78%</strong> of NYC restaurants</div>
+              <div className="pct-line">Feels appropriate more than <strong>78%</strong> of NYC restaurants</div>
             </div>
           </div>
 
