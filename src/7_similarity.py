@@ -127,13 +127,24 @@ def aggregate_to_restaurants(
 def find_best_cluster(
     query_embedding: np.ndarray,
     centroids: np.ndarray,
-    top_n_clusters: int = 3
+    top_n_clusters: int = 3,
+    allowed_clusters=None,
 ) -> list:
     """
     Find the most relevant clusters for a query by comparing to centroids.
     Returns indices of top_n_clusters most similar clusters.
+
+    When `allowed_clusters` is provided, only those cluster indices are
+    eligible — the rest are dropped before ranking. Used by the purpose-of-
+    visit filter (e.g. drink → only cocktail/cafe clusters).
     """
     scores = cosine_similarity(query_embedding, centroids)[0]
+    if allowed_clusters is not None:
+        allowed = sorted({int(c) for c in allowed_clusters if 0 <= int(c) < len(scores)})
+        if not allowed:
+            return []
+        ranked = sorted(allowed, key=lambda i: scores[i], reverse=True)
+        return ranked[:top_n_clusters]
     top_cluster_indices = np.argsort(scores)[::-1][:top_n_clusters]
     return top_cluster_indices.tolist()
 
@@ -240,16 +251,24 @@ def search_pca_within_clusters(
     restaurant_clusters: pd.DataFrame,
     top_n_clusters: int = 3,
     k: int = 50,
-    top_n: int = 10
+    top_n: int = 10,
+    allowed_clusters=None,
 ) -> pd.DataFrame:
     """
     Best of both worlds: cluster filtering + PCA-reduced search.
     First narrows to top_n_clusters, then searches in 128-dim PCA space.
+
+    `allowed_clusters` (optional iterable of int) restricts the candidate
+    pool of clusters before ranking — used by the purpose-of-visit filter.
     """
     query_embedding = embed_query(query, model)
-    
-    # Stage 1: find best clusters using full 768-dim query
-    best_clusters = find_best_cluster(query_embedding, centroids, top_n_clusters)
+
+    # Stage 1: find best clusters using full 768-dim query, respecting any
+    # purpose-of-visit restriction.
+    best_clusters = find_best_cluster(
+        query_embedding, centroids, top_n_clusters,
+        allowed_clusters=allowed_clusters,
+    )
     print(f"Searching clusters: {best_clusters}")
     
     # Stage 2: filter reviews to those clusters, then drop any gmap_ids whose

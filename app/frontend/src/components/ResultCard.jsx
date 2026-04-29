@@ -1,7 +1,7 @@
 import { MS } from './Icons.jsx'
 import { sentimentName } from '../lib/sentiment.js'
 
-export default function ResultCard({ r, hovered, selected, onHover, onClick }) {
+export default function ResultCard({ r, hovered, selected, onHover, onClick, devMode = false }) {
   const isTop5 = r.rank <= 5
   const scoreFive = r.final_score != null ? r.final_score * 5 : null
   const sentiment = sentimentName(scoreFive)
@@ -37,7 +37,7 @@ export default function ResultCard({ r, hovered, selected, onHover, onClick }) {
           <span className="result-score">
             {sentiment && <MS name={sentiment} size={16} className="sentiment-glyph" />}
             {scoreFive != null && <span>{scoreFive.toFixed(1)}</span>}
-            {matchPct != null && (
+            {devMode && matchPct != null && (
               <>
                 <span style={{ opacity: 0.4 }}>·</span>
                 <span>{matchPct}% Match</span>
@@ -45,6 +45,13 @@ export default function ResultCard({ r, hovered, selected, onHover, onClick }) {
             )}
           </span>
         </div>
+        {devMode && r.cluster_id != null && (
+          <div className="result-cluster-line">
+            cluster {r.cluster_id}
+            {r.cluster_keyword ? ` — ${r.cluster_keyword}` : ''}
+            {r.cluster_similarity != null ? ` · sim ${r.cluster_similarity.toFixed(2)}` : ''}
+          </div>
+        )}
       </div>
     </div>
   )

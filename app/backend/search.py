@@ -16,10 +16,11 @@ from typing import Optional
 
 import numpy as np
 import pandas as pd
+from sklearn.metrics.pairwise import cosine_similarity
 
 from src.absa       import get_aspect_prefs
 from src.ranking    import PRICE_TIER_BLEND, rank_candidates, tier_to_score
-from src.similarity import has_valid_nyc_zip, search_pca_within_clusters
+from src.similarity import embed_query, has_valid_nyc_zip, search_pca_within_clusters
 
 from .geo           import filter_by_location
 from .hours         import is_open_at
@@ -35,29 +36,60 @@ from .state         import STATE
 
 # Retrieval pool sizes. Bigger pool = better coverage when the location
 # filter is strict, at the cost of some latency.
-TOP_N_CLUSTERS       = 5
-K_REVIEWS_PER_SEARCH = 500
-RETRIEVAL_POOL       = 500        # restaurants out of the semantic stage
+TOP_N_CLUSTERS       = 3
+K_REVIEWS_PER_SEARCH = 200
+RETRIEVAL_POOL       = 200        # restaurants out of the semantic stage
 
-# Dietary filter — which Google `category` strings qualify a restaurant.
-# Multi-select OR semantics: when the user picks both, a restaurant only
-# needs to match one set.
-DIETARY_CATEGORY_SETS = {
-    "vegetarian": {"Vegan restaurant", "Vegetarian cafe and deli", "Vegetarian restaurant"},
-    "halal":      {"Halal restaurant"},
-}
+# ── Similarity floor ────────────────────────────────────────────────────────
+# Restaurants whose mean review-similarity to the query falls below this
+# threshold are dropped at the retrieval stage (this is the same number the
+# UI surfaces as "% Match"). Below ~0.30 the match starts to feel arbitrary
+# and adds noise to the result list. Range [0.0, 1.0]; set to 0.0 to disable.
+MIN_AVG_SIMILARITY: float = 0.30
 
 
-def _matched_clusters(best_clusters: list[int]) -> list[MatchedCluster]:
+# ── Purpose-of-visit cluster mapping ────────────────────────────────────────
+# Cluster ids that represent "drink" venues (cocktail bars, cafés, dessert
+# spots, etc). When the user selects purpose="drink", semantic retrieval is
+# restricted to the top-3 of these. When purpose="eat" (default), retrieval
+# uses the top-3 of every OTHER cluster.
+#
+# To retune: inspect cluster keywords/examples in
+#   results/clustering/evaluation/cluster_summary.json
+# and replace the list below with the matching ids.
+DRINK_CLUSTERS: list[int] = [6,15,16,17,19,20,27,31,32,36,43,48]
+
+
+def _matched_clusters(
+    best_clusters: list[int],
+    centroid_sims: np.ndarray | None = None,
+) -> list[MatchedCluster]:
     out = []
     for cid in best_clusters:
         info = STATE.cluster_info.get(cid) or STATE.cluster_info.get(str(cid))
         kws  = (info or {}).get("top_keywords", [])[:5]
-        out.append(MatchedCluster(id=int(cid), top_keywords=kws))
+        sim  = float(centroid_sims[cid]) if centroid_sims is not None else None
+        out.append(MatchedCluster(id=int(cid), top_keywords=kws, similarity=sim))
     return out
 
 
-def _summary_rows(df: pd.DataFrame, limit: int) -> list[RestaurantSummary]:
+def _cluster_fields(gmap_id: str, centroid_sims: np.ndarray | None):
+    """Resolve (cluster_id, cluster_keyword, cluster_similarity) for one row."""
+    cid = STATE.gmap_to_cluster.get(str(gmap_id))
+    if cid is None:
+        return None, None, None
+    info = STATE.cluster_info.get(cid) or STATE.cluster_info.get(str(cid)) or {}
+    kws  = info.get("top_keywords") or []
+    keyword = kws[0] if kws else None
+    sim = float(centroid_sims[cid]) if centroid_sims is not None else None
+    return int(cid), keyword, sim
+
+
+def _summary_rows(
+    df: pd.DataFrame,
+    limit: int,
+    centroid_sims: np.ndarray | None = None,
+) -> list[RestaurantSummary]:
     out: list[RestaurantSummary] = []
     for rank, (_, r) in enumerate(df.head(limit).iterrows(), 1):
         # Aspect scores may or may not be present on the ranked row depending
@@ -72,6 +104,9 @@ def _summary_rows(df: pd.DataFrame, limit: int) -> list[RestaurantSummary]:
         if price_r is not None:
             price_blend = PRICE_TIER_BLEND * price_r + (1 - PRICE_TIER_BLEND) * tier_to_score(price_tier_str)
 
+        cluster_id, cluster_keyword, cluster_similarity = _cluster_fields(
+            r["gmap_id"], centroid_sims,
+        )
         out.append(RestaurantSummary(
             gmap_id=str(r["gmap_id"]),
             name=str(r.get("name", "")),
@@ -91,6 +126,9 @@ def _summary_rows(df: pd.DataFrame, limit: int) -> list[RestaurantSummary]:
             aspect_wait_time=waitt,
             aspect_price_pct=_int_or_none(r.get("aspect_price_pct")),
             aspect_wait_time_pct=_int_or_none(r.get("aspect_wait_time_pct")),
+            cluster_id=cluster_id,
+            cluster_keyword=cluster_keyword,
+            cluster_similarity=cluster_similarity,
         ))
     return out
 
@@ -135,7 +173,14 @@ def do_search(req: SearchRequest) -> SearchResponse:
     # 2. Detect aspect preferences
     prefs = get_aspect_prefs(query)
 
-    # 3. Semantic retrieval
+    # 3. Semantic retrieval (purpose-of-visit restricts the candidate cluster set)
+    n_clusters = STATE.centroids.shape[0]
+    drink_set = {c for c in DRINK_CLUSTERS if 0 <= c < n_clusters}
+    if req.purpose == "drink":
+        allowed_clusters = sorted(drink_set)
+    else:
+        allowed_clusters = [c for c in range(n_clusters) if c not in drink_set]
+
     t0 = _time.time()
     candidates, best_clusters = search_pca_within_clusters(
         query, STATE.model, STATE.pca, STATE.embeddings_pca,
@@ -144,14 +189,29 @@ def do_search(req: SearchRequest) -> SearchResponse:
         top_n_clusters=TOP_N_CLUSTERS,
         k=K_REVIEWS_PER_SEARCH,
         top_n=RETRIEVAL_POOL,
+        allowed_clusters=allowed_clusters,
     )
     retrieval_ms = (_time.time() - t0) * 1000.0
+
+    # 3b. Drop low-quality semantic matches before any user-driven filtering.
+    # This is part of the retrieval contract (so it does NOT count toward the
+    # "filtered out by time/location" tally shown in the UI).
+    if MIN_AVG_SIMILARITY > 0 and "avg_similarity" in candidates.columns:
+        candidates = candidates[candidates["avg_similarity"] >= MIN_AVG_SIMILARITY].copy()
+
+    # 3c. Recompute query→centroid similarities so we can surface them per
+    # restaurant (and per matched cluster) without modifying the shared
+    # similarity module. One extra encode (~30-50 ms); centroids are 768-dim
+    # full-embedding-space, so the raw query embedding compares directly.
+    query_emb = embed_query(query, STATE.model)
+    centroid_sims = cosine_similarity(query_emb, STATE.centroids)[0]
+
     total_candidates = len(candidates)
     if total_candidates == 0:
         return SearchResponse(
             query_effective=query, user_prefs=prefs,
             alpha=req.alpha, beta=req.beta, gamma=req.gamma,
-            matched_clusters=_matched_clusters(best_clusters),
+            matched_clusters=_matched_clusters(best_clusters, centroid_sims),
             results=[], total_candidates=0, filtered_candidates=0,
             retrieval_ms=retrieval_ms, rank_ms=0.0,
         )
@@ -179,20 +239,6 @@ def do_search(req: SearchRequest) -> SearchResponse:
         allowed_ids = set(STATE.meta.loc[meta_mask, "gmap_id"])
         candidates = candidates[candidates["gmap_id"].isin(allowed_ids)].copy()
 
-    # 5b. Dietary filter (multi-select; OR across the picked sets).
-    if req.dietary:
-        targets: set[str] = set().union(
-            *(DIETARY_CATEGORY_SETS[d] for d in req.dietary if d in DIETARY_CATEGORY_SETS)
-        )
-        if targets:
-            def _matches_dietary(cats) -> bool:
-                if cats is None:
-                    return False
-                if isinstance(cats, (list, np.ndarray)):
-                    return bool(targets.intersection(cats))
-                return False
-            candidates = candidates[candidates["category"].apply(_matches_dietary)].copy()
-
     # 6. Time filter
     if not req.time.any_time and req.time.at is not None:
         visit = req.time.at
@@ -205,7 +251,7 @@ def do_search(req: SearchRequest) -> SearchResponse:
         return SearchResponse(
             query_effective=query, user_prefs=prefs,
             alpha=req.alpha, beta=req.beta, gamma=req.gamma,
-            matched_clusters=_matched_clusters(best_clusters),
+            matched_clusters=_matched_clusters(best_clusters, centroid_sims),
             results=[],
             total_candidates=total_candidates,
             filtered_candidates=0,
@@ -225,8 +271,8 @@ def do_search(req: SearchRequest) -> SearchResponse:
         query_effective=query,
         user_prefs=result.user_prefs,
         alpha=result.alpha, beta=result.beta, gamma=result.gamma,
-        matched_clusters=_matched_clusters(best_clusters),
-        results=_summary_rows(result.ranked, req.limit),
+        matched_clusters=_matched_clusters(best_clusters, centroid_sims),
+        results=_summary_rows(result.ranked, req.limit, centroid_sims),
         total_candidates=total_candidates,
         filtered_candidates=filtered_candidates,
         retrieval_ms=retrieval_ms,

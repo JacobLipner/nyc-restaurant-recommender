@@ -19,6 +19,9 @@ function formatDayTimeSummary(visit, anyTime) {
   const mm = String(visit.getMinutes()).padStart(2, '0')
   return `${dayLabel} · ${hh}:${mm}`
 }
+function formatPurposeSummary(purpose) {
+  return purpose === 'drink' ? 'Drink' : 'Eat'
+}
 function formatLocationSummary({ uiMode, radiusKm, boroughs, bbox, polygon }) {
   if (uiMode === 'nearby') {
     const r = radiusKm < 1 ? `${Math.round(radiusKm * 1000)} m` : `${radiusKm.toFixed(1)} km`
@@ -50,6 +53,9 @@ export default function Home({ searchState, setSearchState, onSearch, onBrowseAl
   const locationSummary = useMemo(() =>
     formatLocationSummary(searchState),
     [searchState])
+  const purposeSummary = useMemo(() =>
+    formatPurposeSummary(searchState.purpose),
+    [searchState.purpose])
 
   const startInspire = () => {
     setPreInspireQuery(searchState.query || '')
@@ -97,6 +103,7 @@ export default function Home({ searchState, setSearchState, onSearch, onBrowseAl
           </span>
           <span className="mono-label">Filters</span>
           <span className="filter-summary">
+            <span className="pill">{purposeSummary}</span>
             <span className="pill">{dayTimeSummary}</span>
             <span className="pill">{locationSummary}</span>
           </span>

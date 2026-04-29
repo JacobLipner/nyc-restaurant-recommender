@@ -72,7 +72,7 @@ function formatTime(ms) {
   } catch { return '' }
 }
 
-export default function Detail({ gmapId, lastSearchScore, onBack, variant = 'page', closeLabel = '← Back' }) {
+export default function Detail({ gmapId, lastSearchScore, onBack, variant = 'page', closeLabel = '← Back', devMode = false }) {
   const [detail,  setDetail]  = useState(null)
   const [page,    setPage]    = useState(1)
   const [reviews, setReviews] = useState(null)
@@ -135,8 +135,8 @@ export default function Detail({ gmapId, lastSearchScore, onBack, variant = 'pag
   const aspectCells = [
     { label: 'Food',      Icon: IconUtensils,    v: toFive(aspects.food),      pct: null },
     { label: 'Service',   MSName: 'concierge',   v: toFive(aspects.service),   pct: null },
-    { label: 'Price',     Icon: IconDollar,      v: toFive(aspects.price),     pct: aspects.price_pct ?? null     },
-    { label: 'Wait time', Icon: IconClock,       v: toFive(aspects.wait_time), pct: aspects.wait_time_pct ?? null },
+    { label: 'Price',     Icon: IconDollar,      v: toFive(aspects.price),     pct: aspects.price_pct ?? null,     pctPrefix: 'Feels worth the price more than'   },
+    { label: 'Wait time', Icon: IconClock,       v: toFive(aspects.wait_time), pct: aspects.wait_time_pct ?? null, pctPrefix: 'Feels appropriate more than'       },
   ]
 
   return (
@@ -152,13 +152,20 @@ export default function Detail({ gmapId, lastSearchScore, onBack, variant = 'pag
             {detail.borough && <span className="rating-star">{detail.borough}</span>}
             {detail.address && <><span className="bullet">·</span><span>{detail.address}</span></>}
           </div>
-          {(detail.avg_rating != null || detail.price || matchPct != null) && (
+          {(detail.avg_rating != null || detail.price || (devMode && matchPct != null)) && (
             <div className="detail-header-meta secondary">
               {detail.avg_rating != null && <span>★ {detail.avg_rating.toFixed(1)}</span>}
               {detail.price && <span className="mono-meta" style={{ fontSize: 13 }}>{detail.price}</span>}
-              {matchPct != null && (
+              {devMode && matchPct != null && (
                 <span className="mono-meta" style={{ fontSize: 13 }}>{matchPct}% Match</span>
               )}
+            </div>
+          )}
+          {devMode && lastSearchScore?.cluster_id != null && (
+            <div className="detail-cluster-line">
+              cluster {lastSearchScore.cluster_id}
+              {lastSearchScore.cluster_keyword ? ` — ${lastSearchScore.cluster_keyword}` : ''}
+              {lastSearchScore.cluster_similarity != null ? ` · sim ${lastSearchScore.cluster_similarity.toFixed(2)}` : ''}
             </div>
           )}
           {detail.url && (
@@ -197,7 +204,7 @@ export default function Detail({ gmapId, lastSearchScore, onBack, variant = 'pag
             )}
             <div className="aspects-intro">Google Map Users are saying that...</div>
             <div className="scores-grid aspects">
-              {aspectCells.map(({ label, Icon, MSName, v, pct }) => {
+              {aspectCells.map(({ label, Icon, MSName, v, pct, pctPrefix }) => {
                 const sentiment = sentimentName(v)
                 return (
                   <div key={label} className="score-cell">
@@ -214,7 +221,7 @@ export default function Detail({ gmapId, lastSearchScore, onBack, variant = 'pag
                     <div className="bar" style={{ width: `${Math.max(0, Math.min(5, v || 0)) * 20}%` }} />
                     {pct != null && (
                       <div className="pct-line">
-                        Better than <strong>{pct}%</strong> of NYC restaurants
+                        {pctPrefix || 'Better than'} <strong>{pct}%</strong> of NYC restaurants
                       </div>
                     )}
                   </div>

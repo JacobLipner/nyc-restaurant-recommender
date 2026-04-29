@@ -58,10 +58,10 @@ class SearchRequest(BaseModel):
     toggles: Optional[ToggleSelection] = None
     location: LocationFilter = Field(default_factory=LocationFilter)
     time: TimeFilter = Field(default_factory=TimeFilter)
-    # Multi-select dietary restriction; OR semantics across the picked sets.
-    # See `DIETARY_CATEGORY_SETS` in app/backend/search.py for the exact
-    # `category` strings that count.
-    dietary: Optional[list[Literal["vegetarian", "halal"]]] = None
+    # Purpose of visit. "eat" (default) restricts retrieval to non-drink
+    # clusters; "drink" restricts to the cocktail/cafe/bar cluster set.
+    # The exact cluster ids live in `DRINK_CLUSTERS` in app/backend/search.py.
+    purpose: Literal["eat", "drink"] = "eat"
     limit: int = 30
     alpha: float = 0.4
     beta: float = 0.5
@@ -72,6 +72,9 @@ class SearchRequest(BaseModel):
 class MatchedCluster(BaseModel):
     id: int
     top_keywords: list[str]
+    # Cosine similarity between the query embedding (768-dim) and this
+    # cluster's centroid. Surfaced in the dev-mode header chips.
+    similarity: Optional[float] = None
 
 
 class RestaurantSummary(BaseModel):
@@ -102,6 +105,12 @@ class RestaurantSummary(BaseModel):
     # columns precomputed in absa.py (only for price + wait_time).
     aspect_price_pct: Optional[int] = None
     aspect_wait_time_pct: Optional[int] = None
+    # Cluster membership + query↔centroid similarity. Populated for every
+    # restaurant whose gmap_id maps to a known cluster; rendered in the
+    # dev-mode UI under the result card (and on the detail page).
+    cluster_id: Optional[int] = None
+    cluster_keyword: Optional[str] = None
+    cluster_similarity: Optional[float] = None
 
 
 class SearchResponse(BaseModel):

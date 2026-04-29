@@ -39,6 +39,7 @@ export default function Results({
   response, loading, error,
   selectedId, onSelectResult,
   lastSearchScore,
+  devMode = false,
 }) {
   const [hoveredId, setHoveredId] = useState(null)
   const [sheetExpanded, setSheetExpanded] = useState(true)
@@ -112,7 +113,7 @@ export default function Results({
                   className="results-headline-sub"
                   title={`${filteredOut} of the top ${response.total_candidates} semantic candidates were dropped by your filters.`}
                 >
-                  ({filteredOut} results are filtered out by time, location, and dietary filter.)
+                  ({filteredOut} results are filtered out by time and location.)
                 </span>
               )}
             </div>
@@ -121,6 +122,18 @@ export default function Results({
                 retrieval {response.retrieval_ms.toFixed(0)}ms · rank {response.rank_ms.toFixed(0)}ms
               </span>
             </div>
+            {devMode && response.matched_clusters?.length > 0 && (
+              <div className="matched-clusters-row">
+                <span className="mc-label">clusters:</span>
+                {response.matched_clusters.map(c => (
+                  <span key={c.id} className="mc-chip">
+                    C{c.id}
+                    {c.top_keywords?.[0] ? ` ${c.top_keywords[0]}` : ''}
+                    {c.similarity != null ? ` ${c.similarity.toFixed(2)}` : ''}
+                  </span>
+                ))}
+              </div>
+            )}
             <div className="sort-section">
               <div className="mono-label sort-label">Reorder the result by user's satisfaction on…</div>
               <div className="sort-row">
@@ -172,6 +185,7 @@ export default function Results({
                     selected={selectedId === r.gmap_id}
                     onHover={setHoveredId}
                     onClick={() => onSelectResult?.(r.gmap_id)}
+                    devMode={devMode}
                   />
                 </div>
               ))}
@@ -195,6 +209,7 @@ export default function Results({
           lastSearchScore={lastSearchScore}
           onBack={() => onSelectResult?.(null)}
           closeLabel="✕ Close"
+          devMode={devMode}
         />
       )}
     </div>

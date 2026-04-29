@@ -75,6 +75,52 @@
   font-weight: 700;
   line-height: 1;
 }
+.icon-btn.round.dev-btn {
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+}
+.icon-btn.round.dev-btn.active {
+  background: var(--accent-bg);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+/* Dev-mode: matched-clusters chip row in the Results sticky header.
+   Horizontal padding matches .results-meta / .results-headline (14px) so
+   chips align to the same vertical column as the meta line above. */
+.matched-clusters-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 0 14px 8px;
+}
+.matched-clusters-row .mc-label {
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 11px;
+  color: var(--muted);
+}
+.matched-clusters-row .mc-chip {
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 11px;
+  background: var(--accent-bg);
+  color: var(--accent);
+  padding: 2px 8px;
+  border-radius: 10px;
+  white-space: nowrap;
+}
+
+/* Dev-mode: per-restaurant cluster line under the result card / detail header */
+.result-cluster-line,
+.detail-cluster-line {
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 4px;
+}
+.detail-cluster-line { font-size: 12px; }
 
 /* Center query capsule — query takes all available left space; filters right */
 .query-pill {
@@ -1192,7 +1238,9 @@
   background: rgba(17, 24, 39, 0.32);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
-  z-index: 80;
+  /* Must sit above .map-inline-overlay (z-index 600) used by the inline
+     filter map, otherwise its controls paint over the modal. */
+  z-index: 650;
   display: flex;
   align-items: center;
   justify-content: center;

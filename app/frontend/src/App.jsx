@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import Home         from './views/Home.jsx'
 import Results      from './views/Results.jsx'
 import BrowseAll    from './views/BrowseAll.jsx'
@@ -26,9 +26,9 @@ const DEFAULT_SEARCH_STATE = {
   bbox: null,
   polygon: null,
 
-  // Multi-select dietary restriction. Empty array = no filter.
-  // Active values map to backend literals "vegetarian" / "halal".
-  dietary: [],
+  // Purpose of visit. Single-select; default "eat". Maps directly to the
+  // backend `purpose` field, which restricts retrieval to a cluster subset.
+  purpose: 'eat',
 }
 
 function formatDayTimeSummary(visit, anyTime) {
@@ -45,6 +45,9 @@ function formatDayTimeSummary(visit, anyTime) {
   const hh = String(visit.getHours()).padStart(2, '0')
   const mm = String(visit.getMinutes()).padStart(2, '0')
   return `${dayLabel} · ${hh}:${mm}`
+}
+function formatPurposeSummary(purpose) {
+  return purpose === 'drink' ? 'Drink' : 'Eat'
 }
 function formatLocationSummary({ uiMode, radiusKm, boroughs, bbox, polygon }) {
   if (uiMode === 'nearby') {
@@ -76,6 +79,12 @@ export default function App() {
   const [toolbarOpen, setToolbarOpen] = useState(false)
   const [detailId, setDetailId] = useState(null)       // inline right-side panel on Results
   const [browseDetailId, setBrowseDetailId] = useState(null)  // inline right-side panel on Browse
+  const [devMode, setDevMode] = useState(() => {
+    try { return localStorage.getItem('nj.devMode') === '1' } catch { return false }
+  })
+  useEffect(() => {
+    try { localStorage.setItem('nj.devMode', devMode ? '1' : '0') } catch {}
+  }, [devMode])
 
   const buildLocationPayload = (s) => {
     if (s.uiMode === 'nearby') {
@@ -110,10 +119,8 @@ export default function App() {
       toggles: s.toggles,
       location: buildLocationPayload(s),
       time: timeObj,
+      purpose: s.purpose === 'drink' ? 'drink' : 'eat',
       limit: 30,
-    }
-    if (Array.isArray(s.dietary) && s.dietary.length > 0) {
-      payload.dietary = s.dietary
     }
     return payload
   }, [searchState])
@@ -172,6 +179,9 @@ export default function App() {
           query: response.query_effective,
           final_score: row?.final_score,
           avg_similarity: row?.avg_similarity,
+          cluster_id: row?.cluster_id,
+          cluster_keyword: row?.cluster_keyword,
+          cluster_similarity: row?.cluster_similarity,
         }
       })()
     : null
@@ -183,6 +193,9 @@ export default function App() {
   const locationSummary = useMemo(() =>
     formatLocationSummary(searchState),
     [searchState])
+  const purposeSummary = useMemo(() =>
+    formatPurposeSummary(searchState.purpose),
+    [searchState.purpose])
   const queryLabel = searchState.query?.trim() || response?.query_effective || '(empty query)'
 
   const topbarLeft = view === 'home' ? (
@@ -209,6 +222,8 @@ export default function App() {
       <span className="query-pill-query">&ldquo;{queryLabel}&rdquo;</span>
       <span className="query-pill-filters">
         <span className="query-pill-dot">·</span>
+        <span>{purposeSummary}</span>
+        <span className="query-pill-dot">·</span>
         <span>{dayTimeSummary}</span>
         <span className="query-pill-dot">·</span>
         <span>{locationSummary}</span>
@@ -220,12 +235,21 @@ export default function App() {
   ) : null
 
   const topbarRight = (
-    <button
-      className="icon-btn round help-btn"
-      aria-label="How does this work?"
-      onClick={() => setHelpOpen(true)}
-      title="How does this work?"
-    >?</button>
+    <>
+      <button
+        className={'icon-btn round dev-btn' + (devMode ? ' active' : '')}
+        aria-label="Developer mode"
+        aria-pressed={devMode}
+        onClick={() => setDevMode(v => !v)}
+        title={devMode ? 'Developer mode: ON' : 'Developer mode: OFF'}
+      >{'</>'}</button>
+      <button
+        className="icon-btn round help-btn"
+        aria-label="How does this work?"
+        onClick={() => setHelpOpen(true)}
+        title="How does this work?"
+      >?</button>
+    </>
   )
 
   // ── Topbar drop-down (Results only) ───────────────────────────────
@@ -286,6 +310,7 @@ export default function App() {
           selectedId={detailId}
           onSelectResult={setDetailId}
           lastSearchScore={lastSearchScore}
+          devMode={devMode}
         />
       )}
 

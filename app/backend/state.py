@@ -52,6 +52,7 @@ class AppState:
     meta:               pd.DataFrame | None    = None
     centroids:          np.ndarray | None      = None
     clusters:           pd.DataFrame | None    = None
+    gmap_to_cluster:    dict = field(default_factory=dict)   # gmap_id → cluster_id (int)
     cluster_info:       dict = field(default_factory=dict)   # cluster_id → summary dict
     log_reviews_max:    float = 1.0
     loaded: bool = False
@@ -103,6 +104,11 @@ def load_all() -> None:
     print("[state] loading cluster centroids + assignments + summary...")
     STATE.centroids = np.load(str(CENTROIDS_PATH))
     STATE.clusters  = pd.read_csv(str(CLUSTERS_PATH))
+    # O(1) lookup for the per-result cluster info on the search hot path.
+    STATE.gmap_to_cluster = dict(zip(
+        STATE.clusters["gmap_id"].astype(str),
+        STATE.clusters["cluster"].astype(int),
+    ))
     if CLUSTER_SUMMARY.exists():
         import json
         with open(CLUSTER_SUMMARY) as f:

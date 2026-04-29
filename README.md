@@ -312,17 +312,17 @@ All secondary clustering artifacts are saved to `results/clustering/evaluation/`
 
 ### How Clustering Enables Efficient Search
 
-At query time, the user's input is first matched to its top-5 nearest cluster centroids (using `cluster_centroids.npy`), then review-level similarity search is conducted **only within those 5 clusters**. Final relevance is decided at this second stage by review-level cosine in the 128-dim PCA space; the cluster step is purely a coarse pre-filter to narrow what stage 2 has to score.
+At query time, the user's input is first matched to its top-3 nearest cluster centroids (using `cluster_centroids.npy`), then review-level similarity search is conducted **only within those 3 clusters**. Final relevance is decided at this second stage by review-level cosine in the 128-dim PCA space; the cluster step is purely a coarse pre-filter to narrow what stage 2 has to score.
 
-The actual speedup is **review-bound, not restaurant-bound** — stage 2's cost scales with the number of *review embeddings* it has to score, and clusters are heavily imbalanced in review count (per-cluster reviews range from ~6k to ~124k; mean ~43k, std ~27k across the 50 clusters). Concrete bounds for top-5 routing of 50 clusters out of 2.16M total reviews:
+The actual speedup is **review-bound, not restaurant-bound** — stage 2's cost scales with the number of *review embeddings* it has to score, and clusters are heavily imbalanced in review count (per-cluster reviews range from ~6k to ~124k; mean ~43k, std ~27k across the 50 clusters). Concrete bounds for top-3 routing of 50 clusters out of 2.16M total reviews:
 
-| Top-5 selection | Review pool | Speedup vs full-corpus |
+| Top-3 selection | Review pool | Speedup vs full-corpus |
 |---|---|---|
-| Smallest clusters (best case) | ~59k | **~36×** |
-| Median-sized clusters | ~187k | **~11×** |
-| Largest clusters (worst case) | ~546k | **~4×** |
+| Smallest clusters (best case) | ~28k | **~77×** |
+| Median-sized clusters | ~113k | **~19×** |
+| Largest clusters (worst case) | ~347k | **~6×** |
 
-Typical real queries land near the median (~10–12× speedup), but a query that matches a single high-traffic cluster (e.g. generic "good food") can drop to ~4×, while a niche query (e.g. "Tibetan momos") can push past 30×.
+Typical real queries land near the median (~17–22× speedup), but a query that matches a single high-traffic cluster (e.g. generic "good food") can drop to ~6×, while a niche query (e.g. "Tibetan momos") can push past 60×.
 
 > **Note — deliberate clustering/routing space mismatch (intended).**
 > KMeans is fit in the **1268-dim `[meta_emb ‖ tfidf]`** space (each block L2-normalized, equal weight) so that *both* metadata and review vocabulary contribute to the partition. The centroids persisted in `cluster_centroids.npy`, however, are the **mean of the 768-dim meta embeddings** of each cluster's restaurants — the TF-IDF half is intentionally dropped at routing time. The reasoning:
