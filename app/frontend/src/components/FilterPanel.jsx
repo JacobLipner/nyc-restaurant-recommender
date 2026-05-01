@@ -34,7 +34,14 @@ export default function FilterPanel({ searchState, setSearchState }) {
       <div className="filter-section">
         <PurposeFilter
           value={searchState.purpose}
-          onChange={(v) => setSearchState(s => ({ ...s, purpose: v }))}
+          onChange={(v) => setSearchState(s => ({
+            ...s,
+            purpose: v,
+            // Vegetarian only applies to eat — clear it when switching to drink
+            vegetarian: v === 'eat' ? s.vegetarian : false,
+          }))}
+          vegetarian={searchState.vegetarian}
+          onVegetarianChange={(v) => setSearchState(s => ({ ...s, vegetarian: v }))}
         />
       </div>
     </>

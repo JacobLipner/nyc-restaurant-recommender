@@ -29,6 +29,9 @@ const DEFAULT_SEARCH_STATE = {
   // Purpose of visit. Single-select; default "eat". Maps directly to the
   // backend `purpose` field, which restricts retrieval to a cluster subset.
   purpose: 'eat',
+  // When true (and purpose==='eat'), retrieval is restricted to the single
+  // cluster categorized as vegetarian by the review data.
+  vegetarian: false,
 }
 
 function formatDayTimeSummary(visit, anyTime) {
@@ -120,6 +123,7 @@ export default function App() {
       location: buildLocationPayload(s),
       time: timeObj,
       purpose: s.purpose === 'drink' ? 'drink' : 'eat',
+      vegetarian: !!s.vegetarian && s.purpose !== 'drink',
       limit: 30,
     }
     return payload

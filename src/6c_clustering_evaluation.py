@@ -45,12 +45,10 @@ def build_features_combined(meta_normed, restaurant_ids):
     id_order = pd.DataFrame({"gmap_id": restaurant_ids, "_order": range(len(restaurant_ids))})
     agg = id_order.merge(agg, on="gmap_id", how="left").sort_values("_order")
     agg["all_text"] = agg["all_text"].fillna("")
-
     custom_stop_words = [
-        "good", "great", "nice", "delicious", "amazing", "excellent", "best",
+        "good", "great", "nice", "delicious", "amazing", "excellent",
         "bad", "food", "place", "restaurant", "came", "got", "went",
         "time", "really", "just", "ordered", "staff", "service", "definitely",
-        "like", "get", "love", "highly", "recommend"
     ]
     from sklearn.feature_extraction.text import ENGLISH_STOP_WORDS
     stop_words = list(ENGLISH_STOP_WORDS | set(custom_stop_words))
@@ -99,7 +97,11 @@ def generate_summaries(clusters_df):
     merged = reviews_df.merge(clusters_df[["gmap_id", "cluster"]], on="gmap_id")
     cluster_texts = merged.groupby("cluster")["text_for_embedding"].apply(lambda x: " ".join(x.fillna(""))).reset_index()
     
-    custom_stop_words = ["good", "great", "nice", "delicious", "amazing", "food", "place", "ordered", "time", "just", "really"]
+    custom_stop_words = [
+        "good", "great", "nice", "delicious", "amazing", "excellent",
+        "bad", "food", "place", "restaurant", "came", "got", "went",
+        "time", "really", "just", "ordered", "staff", "service", "definitely",
+    ]
     from sklearn.feature_extraction.text import ENGLISH_STOP_WORDS
     stop_words = list(ENGLISH_STOP_WORDS | set(custom_stop_words))
     
@@ -126,9 +128,9 @@ def generate_summaries(clusters_df):
         json.dump(summaries, f, indent=2)
     return summaries
 
-def save_visualizations(scores_df, clusters_df, summaries):
+def save_visualizations(scores_df, clusters_df, summaries, combined, meta_df):
     print("🎨 Saving Visualizations to results/clustering/evaluation/ ...")
-    
+
     # 1. Silhouette vs K
     plt.figure(figsize=(10, 6))
     sns.lineplot(data=scores_df, x='k', y='silhouette', hue='scheme', marker='o')
@@ -147,12 +149,15 @@ def save_visualizations(scores_df, clusters_df, summaries):
     plt.savefig(f"{EVAL_DIR}/cluster_size_dist.png")
     plt.close()
 
-    # 3. WordClouds (Top 5 clusters by size as preview, but logic for all)
+    # 3. WordClouds — clear stale per-cluster files first so removed clusters don't linger
     wc_dir = f"{EVAL_DIR}/wordclouds"
     os.makedirs(wc_dir, exist_ok=True)
+    for fname in os.listdir(wc_dir):
+        if fname.startswith("cluster_") and fname.endswith(".png"):
+            os.remove(os.path.join(wc_dir, fname))
     print(f"  Generating {len(summaries)} WordClouds...")
     for s in summaries:
-        text = " ".join(s['top_keywords']) # Simple repetition or weights would be better but keywords are pre-filtered
+        text = " ".join(s['top_keywords'])
         wc = WordCloud(width=800, height=400, background_color='white').generate(text)
         wc.to_file(f"{wc_dir}/cluster_{s['cluster_id']}.png")
 
@@ -166,6 +171,25 @@ def save_visualizations(scores_df, clusters_df, summaries):
     fig.update_layout(mapbox_style="carto-positron")
     fig.write_html(f"{EVAL_DIR}/cluster_map.html")
 
+    # 5. Feature-space Cluster Scatter (2D PCA of combined features, colored by cluster)
+    coords = PCA(n_components=2, random_state=42).fit_transform(combined)
+    scatter_df = pd.DataFrame({
+        "gmap_id": meta_df["gmap_id"].values,
+        "name": meta_df["name"].values,
+        "x": coords[:, 0],
+        "y": coords[:, 1],
+    }).merge(clusters_df[["gmap_id", "cluster"]], on="gmap_id", how="left")
+    scatter_df = scatter_df.dropna(subset=["cluster"])
+    scatter_df["cluster"] = scatter_df["cluster"].astype(int)
+    fig2 = px.scatter(
+        scatter_df, x="x", y="y", color="cluster", hover_name="name",
+        title="NYC Restaurant Clusters — Feature Space (PCA 2D Projection)",
+        color_continuous_scale=px.colors.cyclical.IceFire,
+        height=800, opacity=0.7,
+    )
+    fig2.update_traces(marker=dict(size=4))
+    fig2.write_html(f"{EVAL_DIR}/cluster_visualization.html")
+
 def main():
     os.makedirs(EVAL_DIR, exist_ok=True)
     
@@ -176,26 +200,15 @@ def main():
     meta_normed = normalize(raw_meta_emb, norm="l2")
     combined = build_features_combined(meta_normed, meta_df["gmap_id"].tolist())
 
-    # 2. Run Grid Search (Skip if exists)
-    scores_path = f"{EVAL_DIR}/clustering_scores.csv"
-    if os.path.exists(scores_path):
-        print(f"⏩ Found existing scores at {scores_path}. Skipping Grid Search.")
-        scores_df = pd.read_csv(scores_path)
-    else:
-        scores_df = run_grid_search(meta_normed, combined)
+    # 2. Run Grid Search (always renew)
+    scores_df = run_grid_search(meta_normed, combined)
 
-    # 3. Process Current Production Result (Skip summary if exists)
+    # 3. Generate Summaries (always renew)
     clusters_df = pd.read_csv(f"{RESULTS_DIR}/restaurant_clusters.csv")
-    summary_path = f"{EVAL_DIR}/cluster_summary.json"
-    if os.path.exists(summary_path):
-        print(f"⏩ Found existing summary at {summary_path}. Skipping Summary Generation.")
-        with open(summary_path, "r") as f:
-            summaries = json.load(f)
-    else:
-        summaries = generate_summaries(clusters_df)
+    summaries = generate_summaries(clusters_df)
 
     # 4. Save Visualizations
-    save_visualizations(scores_df, clusters_df, summaries)
+    save_visualizations(scores_df, clusters_df, summaries, combined, meta_df)
     
     print(f"\n✅ All evaluation artifacts saved to {EVAL_DIR}")
 

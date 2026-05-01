@@ -456,6 +456,24 @@
   color: #fff;
   border-color: var(--accent);
 }
+/* Vegetarian-friendly checkbox shown inline with the eat/drink chips. */
+.veg-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text);
+  user-select: none;
+}
+.veg-check input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  cursor: pointer;
+  accent-color: var(--accent);
+}
 .weekday-row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 12px; }
 .weekday-chip {
   padding: 7px 12px;

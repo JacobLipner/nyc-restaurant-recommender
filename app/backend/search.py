@@ -59,6 +59,13 @@ MIN_AVG_SIMILARITY: float = 0.30
 # and replace the list below with the matching ids.
 DRINK_CLUSTERS: list[int] = [6,15,16,17,19,20,27,31,32,36,43,48]
 
+# Single eat-side cluster considered "vegetarian-friendly" by review content.
+# Picked from cluster_summary.json by inspecting top keywords; cluster 46's
+# top tokens are ["vegan","vegetarian","friendly","menu","options"]. Must NOT
+# overlap DRINK_CLUSTERS — assertion below.
+VEGETARIAN_CLUSTER: int = 46
+assert VEGETARIAN_CLUSTER not in DRINK_CLUSTERS, "vegetarian cluster must be an eat cluster"
+
 
 def _matched_clusters(
     best_clusters: list[int],
@@ -178,6 +185,9 @@ def do_search(req: SearchRequest) -> SearchResponse:
     drink_set = {c for c in DRINK_CLUSTERS if 0 <= c < n_clusters}
     if req.purpose == "drink":
         allowed_clusters = sorted(drink_set)
+    elif req.vegetarian and 0 <= VEGETARIAN_CLUSTER < n_clusters:
+        # Strict vegetarian filter: search only the single vegetarian cluster.
+        allowed_clusters = [VEGETARIAN_CLUSTER]
     else:
         allowed_clusters = [c for c in range(n_clusters) if c not in drink_set]
 

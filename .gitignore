@@ -53,3 +53,6 @@ Thumbs.db
 
 # Claude Code local artifacts (plans, sessions, memory, hooks)
 .claude/
+
+# Local verification / one-off scripts
+scripts/verify_kmeans_equivalence.py

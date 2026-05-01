@@ -62,6 +62,10 @@ class SearchRequest(BaseModel):
     # clusters; "drink" restricts to the cocktail/cafe/bar cluster set.
     # The exact cluster ids live in `DRINK_CLUSTERS` in app/backend/search.py.
     purpose: Literal["eat", "drink"] = "eat"
+    # When true (and purpose=="eat"), retrieval is further restricted to the
+    # single cluster categorized as vegetarian-friendly by review content.
+    # The cluster id lives in `VEGETARIAN_CLUSTER` in app/backend/search.py.
+    vegetarian: bool = False
     limit: int = 30
     alpha: float = 0.4
     beta: float = 0.5
