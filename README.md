@@ -1,7 +1,5 @@
 # ML-Restaurant-Recommendation
 
-GitHub repository for the final project of team **Noble Jaguars** — NYU Fundamentals of Machine Learning Course.
-
 **Team:** Ashley Ying, Jake Lipner, Langyue Zhao, Yiduo Lu, Yoonjae Andrew Joung
 
 ## Project Overview
