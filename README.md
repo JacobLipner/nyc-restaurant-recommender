@@ -1,6 +1,4 @@
-# ML-Restaurant-Recommendation
-
-**Team:** Ashley Ying, Jake Lipner, Langyue Zhao, Yiduo Lu, Yoonjae Andrew Joung
+**Team:** Jake Lipner, Ashley Ying, Langyue Zhao, Yiduo Lu, Yoonjae Andrew Joung
 
 ## Project Overview
 
