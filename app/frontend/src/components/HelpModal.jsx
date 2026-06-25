@@ -292,7 +292,7 @@ function Slide({ index }) {
     (
       <div className="slide-title-hero">
         <h1>Beyond Star Ratings: <span style={{color: 'var(--accent)'}}>A Context-Aware Restaurant Recommender</span> for NYC</h1>
-        <div className="subtitle">NYU Fundamentals of Machine Learning · Team Noble Jaguars</div>
+        <div className="subtitle">NYU Fundamentals of Machine Learning · Jacob Lipner</div>
         <div className="team"><strong>Team:</strong> Ashley Ying · Jacob Lipner · Langyue Zhao · Yiduo Lu · Yoonjae Andrew Joung</div>
         <div className="hero-img-row">
           <img src="/presentation/image_6a.png" alt="Our app's filter UI — date, time, borough" />
