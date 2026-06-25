@@ -207,7 +207,7 @@ export default function App() {
       className="brand-pill"
       onClick={() => setAboutOpen(true)}
       title="About This Project"
-    >Jacob Lipner</button>
+    >Team Details</button>
   ) : (
     <button
       className="icon-btn"
