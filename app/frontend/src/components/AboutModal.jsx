@@ -10,8 +10,6 @@ export default function AboutModal({ open, onClose }) {
         <div className="content">
           <h2>Team</h2>
           <p>Jacob Lipner · Ashley Ying · Langyue Zhao · Yiduo Lu · Yoonjae Andrew Joung</p>
-          <p style={{ fontFamily: 'var(--mono)', fontSize: 11, letterSpacing: 1.6, textTransform: 'uppercase', color: 'var(--muted)', marginTop: -4 }}>
-          </p>
 
           <h3>Project overview</h3>
           <p>
