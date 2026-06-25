@@ -632,52 +632,10 @@ export default function HelpModal({ open, onClose }) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="content">
-          <div className="loc-mode-tabs help-modal-tabs">
-            <button
-              className={mode === 'summary' ? 'active' : ''}
-              onClick={() => setMode('summary')}
-            >Summary</button>
-            <button
-              className={mode === 'presentation' ? 'active' : ''}
-              onClick={() => setMode('presentation')}
-            >Presentation</button>
+          <SummaryContent />
+          <div className="modal-footer">
+            <button className="btn primary" onClick={onClose}>Got it</button>
           </div>
-
-          {!isPresentation && (
-            <>
-              <SummaryContent />
-              <div className="modal-footer">
-                <button className="btn primary" onClick={onClose}>Got it</button>
-              </div>
-            </>
-          )}
-
-          {isPresentation && (
-            <div className="slide-deck">
-              <Slide index={slideIdx} />
-              <div className="slide-nav">
-                <button
-                  className="slide-nav-btn"
-                  onClick={() => setSlideIdx(i => Math.max(i - 1, 0))}
-                  disabled={slideIdx === 0}
-                  aria-label="Previous slide"
-                >
-                  <MS name="chevron_left" size={22} />
-                </button>
-                <div className="counter">
-                  {slideIdx + 1} / {TOTAL_SLIDES}
-                </div>
-                <button
-                  className="slide-nav-btn"
-                  onClick={() => setSlideIdx(i => Math.min(i + 1, TOTAL_SLIDES - 1))}
-                  disabled={slideIdx === TOTAL_SLIDES - 1}
-                  aria-label="Next slide"
-                >
-                  <MS name="chevron_right" size={22} />
-                </button>
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </div>
