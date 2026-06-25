@@ -206,8 +206,8 @@ export default function App() {
     <button
       className="brand-pill"
       onClick={() => setAboutOpen(true)}
-      title="About Noble Jaguars"
-    >Noble Jaguars</button>
+      title="About This Project"
+    >Jacob Lipner</button>
   ) : (
     <button
       className="icon-btn"

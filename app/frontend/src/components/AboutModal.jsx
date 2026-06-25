@@ -1,7 +1,6 @@
 import { IconGithub } from './Icons.jsx'
 
-const GITHUB_URL = 'https://github.com/andrewjoung/ml-restaurant-recommendation'
-const TEAM = ['Ashley Ying', 'Jake Lipner', 'Langyue Zhao', 'Yiduo Lu', 'Yoonjae Andrew Joung']
+const GITHUB_URL = 'https://github.com/JacobLipner/nyc-restaurant-recommender'
 
 export default function AboutModal({ open, onClose }) {
   if (!open) return null
@@ -9,13 +8,10 @@ export default function AboutModal({ open, onClose }) {
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <div className="content">
-          <h2>Noble Jaguars</h2>
+          <h2>Jacob Lipner</h2>
           <p style={{ fontFamily: 'var(--mono)', fontSize: 11, letterSpacing: 1.6, textTransform: 'uppercase', color: 'var(--muted)', marginTop: -4 }}>
-            Final project · NYU Fundamentals of Machine Learning
+            NYU Fundamentals of Machine Learning · Jan – May 2026
           </p>
-
-          <h3>The team</h3>
-          <p>{TEAM.join(' · ')}</p>
 
           <h3>Project overview</h3>
           <p>
@@ -25,7 +21,7 @@ export default function AboutModal({ open, onClose }) {
             the rich signal hiding inside review text.
           </p>
           <p>
-            Noble Jaguars builds a <strong>context-aware restaurant recommender</strong> over
+            This project builds a <strong>context-aware restaurant recommender</strong> over
             the <a className="link" href="https://cseweb.ucsd.edu/~jmcauley/datasets.html#google_local" target="_blank" rel="noreferrer">Google Local Reviews</a> dataset — 19,500 NYC restaurants, 2.1M reviews — and
             lets you search in natural language while weighing exactly the aspects you care
             about (food, service, price, wait time).
@@ -40,7 +36,7 @@ export default function AboutModal({ open, onClose }) {
           </p>
 
           <div className="modal-footer" style={{ justifyContent: 'space-between' }}>
-            <a
+              <a
               className="btn outline"
               href={GITHUB_URL}
               target="_blank"
